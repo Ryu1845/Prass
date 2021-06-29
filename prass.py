@@ -99,11 +99,8 @@ def convert_srt(input_path, output_file, encoding):
     Example:
     $ prass convert-srt input.srt -o output.ass --encoding cp1251
     """
-    try:
-        with click.open_file(input_path, encoding=encoding) as input_file:
-            AssScript.from_srt_stream(input_file).to_ass_stream(output_file)
-    except LookupError:
-        raise PrassError("Encoding {0} doesn't exist".format(encoding))
+    with click.open_file(input_path, encoding=encoding) as input_file:
+        AssScript.from_srt_stream(input_file).to_ass_stream(output_file)
 
 
 @cli.command("copy-styles", short_help="copy styles from one ass script to another")
@@ -148,13 +145,16 @@ def convert_srt(input_path, output_file, encoding):
 )
 def copy_styles(dst_file, src_file, output_file, clean, resample, forced_resolution):
     """Copy styles from one ASS script to another, write the result as a third script.
-    You always have to provide the "from" argument, "to" defaults to stdin and "output" defaults to stdout.
+    You always have to provide the "from" argument, "to" defaults to stdin and "output"
+    defaults to stdout.
 
     \b
     Simple usage:
     $ prass copy-styles --from template.ass --to unstyled.ass -o styled.ass
     With pipes:
-    $ cat unstyled.ass | prass copy-styles --from template.ass | prass cleanup --comments -o out.ass
+    $ cat unstyled.ass |\\
+        prass copy-styles --from template.ass |\\
+        prass cleanup --comments -o out.ass
     """
     src_script = AssScript.from_ass_stream(src_file)
     dst_script = AssScript.from_ass_stream(dst_file)
@@ -227,7 +227,8 @@ def sort_script(input_file, output_file, sort_by, descending):
     "styles",
     multiple=True,
     metavar="<names>",
-    help="Style names to process. All by default. Use comma to separate, or supply it multiple times",
+    help="""Style names to process. All by default.
+Use comma to separate, or supply it multiple times""",
 )
 @click.option(
     "--lead-in",
@@ -296,28 +297,32 @@ def sort_script(input_file, output_file, sort_by, descending):
     default=0,
     type=float,
     metavar="<ms>",
-    help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed before the event",
+    help="""Max distance between a keyframe and event start for it to be snapped,
+when keyframe is placed before the event""",
 )
 @click.option(
     "--kf-after-start",
     default=0,
     type=float,
     metavar="<ms>",
-    help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed after the start time",
+    help="""Max distance between a keyframe and event start for it to be snapped,
+when keyframe is placed after the start time""",
 )
 @click.option(
     "--kf-before-end",
     default=0,
     type=float,
     metavar="<ms>",
-    help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed before the end time",
+    help="""Max distance between a keyframe and event end for it to be snapped,
+when keyframe is placed before the end time""",
 )
 @click.option(
     "--kf-after-end",
     default=0,
     type=float,
     metavar="<ms>",
-    help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed after the event",
+    help="""Max distance between a keyframe and event end for it to be snapped,
+when keyframe is placed after the event""",
 )
 def tpp(
     input_file,
@@ -338,16 +343,26 @@ def tpp(
 ):
     """Timing post-processor.
     It's a pretty straightforward port from Aegisub so you should be familiar with it.
-    You have to specify keyframes and timecodes (either as a CFR value or a timecodes file) if you want keyframe snapping.
-    All parameters default to zero so if you don't want something - just don't put it in the command line.
+    You have to specify keyframes and timecodes
+    (either as a CFR value or a timecodes file) if you want keyframe snapping.
+    All parameters default to zero so if you don't want something
+    - just don't put it in the command line.
 
     \b
     To add lead-in and lead-out:
     $ prass tpp input.ass --lead-in 50 --lead-out 150 -o output.ass
-    To make adjacent lines continuous, with 80% bias to changing end time of the first line:
+    To make adjacent lines continuous,
+    with 80% bias to changing end time of the first line:
     $ prass tpp input.ass --overlap 50 --gap 200 --bias 80 -o output.ass
     To snap events to keyframes without a timecodes file:
-    $ prass tpp input.ass --keyframes kfs.txt --fps 23.976 --kf-before-end 150 --kf-after-end 150 --kf-before-start 150 --kf-after-start 150 -o output.ass
+    $ prass tpp input.ass\\
+        --keyframes kfs.txt\\
+        --fps 23.976\\
+        --kf-before-end 150\\
+        --kf-after-end 150\\
+        --kf-before-start 150\\
+        --kf-after-start 150\\
+        -o output.ass
     """
 
     if fps and timecodes_path:
@@ -499,7 +514,8 @@ def cleanup(
     required=False,
     default="0",
     metavar="<time>",
-    help="Time to shift. Might be negative. 10.5s, 150ms or 1:12.23 formats are allowed, seconds assumed by default",
+    help="""Time to shift. Might be negative. 10.5s, 150ms
+or 1:12.23 formats are allowed, seconds assumed by default""",
 )
 @click.option(
     "--start", "shift_start", default=False, is_flag=True, help="Shift only start time"
@@ -511,7 +527,8 @@ def cleanup(
     "--multiplier",
     "multiplier",
     default="1",
-    help="Multiplies timings by the value to change speed. Value is a decimal or proper fraction",
+    help="""Multiplies timings by the value to change speed.
+Value is a decimal or proper fraction""",
 )
 def shift(input_file, output_file, shift_by, shift_start, shift_end, multiplier):
     """Shift all lines in a script by defined amount and/or change speed.
@@ -520,8 +537,10 @@ def shift(input_file, output_file, shift_by, shift_start, shift_end, multiplier)
     You can use one of the following formats to specify the time for shift:
         - "1.5s" or just "1.5" means 1 second 500 milliseconds
         - "150ms" means 150 milliseconds
-        - "1:7:12.55" means 1 hour, 7 minutes, 12 seconds and 550 milliseconds. All parts are optional.
-    Every format allows a negative sign before the value, which means "shift back", like "-12s"
+        - "1:7:12.55" means 1 hour, 7 minutes, 12 seconds and 550 milliseconds.
+    All parts are optional.
+    Every format allows a negative sign before the value,
+    which means "shift back", like "-12s"
 
     \b
     Optionally, specify multiplier to change speed:

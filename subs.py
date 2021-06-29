@@ -416,13 +416,13 @@ class AssScript(object):
         for srt_event in file_object.read().replace("\r\n", "\n").split("\n\n"):
             if not srt_event:
                 continue
-            lines = srt_event.split("\n", 2)
-            times = lines[1].split("-->")
+            lines = srt_event.split("\n", 3)
+            times = lines[2].split("-->")
             if "X" in times[1] or "Y" in times[1]:
                 times[1], box = times[1].strip().split(" ", 1)
             else:
                 box = False
-            text = srt_line_to_ass(lines[2])
+            text = srt_line_to_ass(lines[3])
             events_section.events.append(
                 AssEvent(
                     start=parse_srt_time(times[0].rstrip()),
@@ -432,11 +432,11 @@ class AssScript(object):
             )
         styles_section.styles["Default"] = AssStyle(
             "Default",
-            "Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1",
+            "Verdana,55.5,&H00FFFFFF,&H000000FF,&H00282828,&H00000000,-1,0,0,0,100.2,100,0,0,1,3.75,0,2,0,0,79,1"
         )
         script_info = ScriptInfoSection()
         script_info.parse_line("; Script converted by Prass")
-        script_info.set_resolution(384, 288)
+        script_info.set_resolution(1920, 1080)
         return cls(
             [
                 (SCRIPT_INFO_SECTION, script_info),
