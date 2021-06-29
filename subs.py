@@ -105,7 +105,7 @@ class AssStyle(object):
             horizontal_stretch = new_ar / old_ar
 
         parts = self.definition.split(",")
-        parts[1] = "%i" % (round(int(parts[1]) * scale_height))  # font size
+        parts[1] = "%i" % (round(float(parts[1]) * scale_height))  # font size
         parts[10] = "%g" % (float(parts[10]) * horizontal_stretch)  # scale x
         parts[12] = "%g" % (float(parts[12]) * scale_width)  # spacing
         if scale_border_and_shadow:
