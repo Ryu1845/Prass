@@ -19,7 +19,9 @@ class TestTimecodes(unittest.TestCase):
         self.assertEqual(1, timecodes.get_frame_number(1, timecodes.TIMESTAMP_START))
         self.assertEqual(1, timecodes.get_frame_number(1000, timecodes.TIMESTAMP_START))
         self.assertEqual(2, timecodes.get_frame_number(1001, timecodes.TIMESTAMP_START))
-        self.assertEqual(100, timecodes.get_frame_number(100000, timecodes.TIMESTAMP_START))
+        self.assertEqual(
+            100, timecodes.get_frame_number(100000, timecodes.TIMESTAMP_START)
+        )
 
     def test_get_frame_number_end(self):
         timecodes = tools.Timecodes.cfr(fps=1.0)
@@ -27,7 +29,9 @@ class TestTimecodes(unittest.TestCase):
         self.assertEqual(0, timecodes.get_frame_number(1, timecodes.TIMESTAMP_END))
         self.assertEqual(0, timecodes.get_frame_number(1000, timecodes.TIMESTAMP_END))
         self.assertEqual(1, timecodes.get_frame_number(1001, timecodes.TIMESTAMP_END))
-        self.assertEqual(99, timecodes.get_frame_number(100000, timecodes.TIMESTAMP_END))
+        self.assertEqual(
+            99, timecodes.get_frame_number(100000, timecodes.TIMESTAMP_END)
+        )
 
     def test_get_frame_time_exact(self):
         timecodes = tools.Timecodes.cfr(fps=1.0)

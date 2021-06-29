@@ -1,41 +1,46 @@
 #!/usr/bin/env python3
-import click
 import sys
 from operator import attrgetter
-from common import PrassError, zip, map
+
+import click
+
+from common import PrassError, map, zip
 from subs import AssScript
 from tools import Timecodes, parse_keyframes
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 def parse_fps_string(fps_string):
-    if '/' in fps_string:
-        parts = fps_string.split('/')
+    if "/" in fps_string:
+        parts = fps_string.split("/")
         if len(parts) > 2:
-            raise PrassError('Invalid fps value')
+            raise PrassError("Invalid fps value")
         try:
             return float(parts[0]) / float(parts[1])
         except ValueError:
-            raise PrassError('Invalid fps value')
+            raise PrassError("Invalid fps value")
     else:
         try:
             return float(fps_string)
         except ValueError:
-            raise PrassError('Invalid fps value')
+            raise PrassError("Invalid fps value")
 
 
 def parse_shift_string(shift_string):
     try:
-        if ':' in shift_string:
+        if ":" in shift_string:
             negator = 1
-            if shift_string.startswith('-'):
+            if shift_string.startswith("-"):
                 negator = -1
                 shift_string = shift_string[1:]
-            parts = list(map(float, shift_string.split(':')))
+            parts = list(map(float, shift_string.split(":")))
             if len(parts) > 3:
                 raise PrassError("Invalid shift value: '{0}'".format(shift_string))
-            shift_seconds = sum(part * multiplier for part, multiplier in zip(reversed(parts), (1.0, 60.0, 3600.0)))
+            shift_seconds = sum(
+                part * multiplier
+                for part, multiplier in zip(reversed(parts), (1.0, 60.0, 3600.0))
+            )
             return shift_seconds * 1000 * negator  # convert to ms
         else:
             if shift_string.endswith("ms"):
@@ -49,17 +54,19 @@ def parse_shift_string(shift_string):
 
 
 def parse_resolution_string(resolution_string):
-    if resolution_string == '720p':
-        return 1280,720
-    if resolution_string == '1080p':
-        return 1920,1080
-    for separator in (':', 'x', ","):
+    if resolution_string == "720p":
+        return 1280, 720
+    if resolution_string == "1080p":
+        return 1920, 1080
+    for separator in (":", "x", ","):
         if separator in resolution_string:
             width, _, height = resolution_string.partition(separator)
             try:
                 return int(width), int(height)
             except ValueError:
-                raise PrassError("Invalid resolution string: '{0}'".format(resolution_string))
+                raise PrassError(
+                    "Invalid resolution string: '{0}'".format(resolution_string)
+                )
     raise PrassError("Invalid resolution string: '{0}'".format(resolution_string))
 
 
@@ -69,9 +76,22 @@ def cli():
 
 
 @cli.command("convert-srt", short_help="convert srt subtitles to ass")
-@click.option("-o", "--output", "output_file", default='-', type=click.File(encoding="utf-8-sig", mode='w'))
-@click.option("--encoding", "encoding", default='utf-8-sig', help="Encoding to use for the input SRT file")
-@click.argument("input_path", type=click.Path(exists=True, dir_okay=False, allow_dash=True))
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+)
+@click.option(
+    "--encoding",
+    "encoding",
+    default="utf-8-sig",
+    help="Encoding to use for the input SRT file",
+)
+@click.argument(
+    "input_path", type=click.Path(exists=True, dir_okay=False, allow_dash=True)
+)
 def convert_srt(input_path, output_file, encoding):
     """Convert SRT script to ASS.
 
@@ -86,17 +106,46 @@ def convert_srt(input_path, output_file, encoding):
         raise PrassError("Encoding {0} doesn't exist".format(encoding))
 
 
-@cli.command('copy-styles', short_help="copy styles from one ass script to another")
-@click.option("-o", "--output", "output_file", default="-", type=click.File(encoding="utf-8-sig", mode='w'))
-@click.option('--to', 'dst_file', required=True, type=click.File(encoding='utf-8-sig', mode='r'),
-              help="File to copy the styles to")
-@click.option('--from', 'src_file', required=True, type=click.File(encoding='utf-8-sig', mode='r'),
-              help="File to take the styles from")
-@click.option('--clean', default=False, is_flag=True,
-              help="Remove all older styles in the destination file")
-@click.option('--resample/--no-resample', 'resample', default=True,
-              help="Resample style resolution to match output script when possible")
-@click.option('--resolution', 'forced_resolution', default=None, help="Assume resolution of the destination file")
+@cli.command("copy-styles", short_help="copy styles from one ass script to another")
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+)
+@click.option(
+    "--to",
+    "dst_file",
+    required=True,
+    type=click.File(encoding="utf-8-sig", mode="r"),
+    help="File to copy the styles to",
+)
+@click.option(
+    "--from",
+    "src_file",
+    required=True,
+    type=click.File(encoding="utf-8-sig", mode="r"),
+    help="File to take the styles from",
+)
+@click.option(
+    "--clean",
+    default=False,
+    is_flag=True,
+    help="Remove all older styles in the destination file",
+)
+@click.option(
+    "--resample/--no-resample",
+    "resample",
+    default=True,
+    help="Resample style resolution to match output script when possible",
+)
+@click.option(
+    "--resolution",
+    "forced_resolution",
+    default=None,
+    help="Assume resolution of the destination file",
+)
 def copy_styles(dst_file, src_file, output_file, clean, resample, forced_resolution):
     """Copy styles from one ASS script to another, write the result as a third script.
     You always have to provide the "from" argument, "to" defaults to stdin and "output" defaults to stdout.
@@ -116,12 +165,27 @@ def copy_styles(dst_file, src_file, output_file, clean, resample, forced_resolut
     dst_script.to_ass_stream(output_file)
 
 
-@cli.command('sort', short_help="sort ass script events")
-@click.option("-o", "--output", "output_file", default='-', type=click.File(encoding="utf-8-sig", mode='w'), metavar="<path>")
+@cli.command("sort", short_help="sort ass script events")
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+    metavar="<path>",
+)
 @click.argument("input_file", type=click.File(encoding="utf-8-sig"))
-@click.option('--by', 'sort_by', multiple=True, default=['start'], help="Parameter to sort by",
-              type=click.Choice(['time', 'start', 'end', 'style', 'actor', 'effect', 'layer']))
-@click.option('--desc', 'descending', default=False, is_flag=True, help="Descending order")
+@click.option(
+    "--by",
+    "sort_by",
+    multiple=True,
+    default=["start"],
+    help="Parameter to sort by",
+    type=click.Choice(["time", "start", "end", "style", "actor", "effect", "layer"]),
+)
+@click.option(
+    "--desc", "descending", default=False, is_flag=True, help="Descending order"
+)
 def sort_script(input_file, output_file, sort_by, descending):
     """Sort script by one or more parameters.
 
@@ -140,46 +204,138 @@ def sort_script(input_file, output_file, sort_by, descending):
         "style": "style",
         "actor": "actor",
         "effect": "effect",
-        "layer": "layer"
+        "layer": "layer",
     }
     getter = attrgetter(*[attrs_map[x] for x in sort_by])
     script.sort_events(getter, descending)
     script.to_ass_stream(output_file)
 
 
-@cli.command('tpp', short_help="timing post-processor")
-@click.option("-o", "--output", "output_file", default='-', type=click.File(encoding="utf-8-sig", mode='w'), metavar="<path>")
+@cli.command("tpp", short_help="timing post-processor")
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+    metavar="<path>",
+)
 @click.argument("input_file", type=click.File(encoding="utf-8-sig"))
-@click.option("-s", "--style", "styles", multiple=True, metavar="<names>",
-              help="Style names to process. All by default. Use comma to separate, or supply it multiple times")
-@click.option("--lead-in", "lead_in", default=0, type=int, metavar="<ms>",
-              help="Lead-in value in milliseconds")
-@click.option("--lead-out", "lead_out", default=0, type=int, metavar="<ms>",
-              help="Lead-out value in milliseconds")
-@click.option("--overlap", "max_overlap", default=0, type=int, metavar="<ms>",
-              help="Maximum overlap for two lines to be made continuous, in milliseconds")
-@click.option("--gap", "max_gap", default=0, type=int, metavar="<ms>",
-              help="Maximum gap between two lines to be made continuous, in milliseconds")
-@click.option("--bias", "adjacent_bias", default=50, type=click.IntRange(0, 100), metavar="<percent>",
-              help="How to set the adjoining of lines. "
-                   "0 - change start time of the second line, 100 - end time of the first line. "
-                   "Values from 0 to 100 allowed.")
-@click.option("--keyframes", "keyframes_path", type=click.Path(exists=True, readable=True, dir_okay=False), metavar="<path>",
-              help="Path to keyframes file")
-@click.option("--timecodes", "timecodes_path", type=click.Path(readable=True, dir_okay=False), metavar="<path>",
-              help="Path to timecodes file")
-@click.option("--fps", "fps", metavar="<float>",
-              help="Fps provided as decimal or proper fraction, in case you don't have timecodes")
-@click.option("--kf-before-start", default=0, type=float, metavar="<ms>",
-              help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed before the event")
-@click.option("--kf-after-start", default=0, type=float, metavar="<ms>",
-              help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed after the start time")
-@click.option("--kf-before-end", default=0, type=float, metavar="<ms>",
-              help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed before the end time")
-@click.option("--kf-after-end", default=0, type=float, metavar="<ms>",
-              help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed after the event")
-def tpp(input_file, output_file, styles, lead_in, lead_out, max_overlap, max_gap, adjacent_bias,
-        keyframes_path, timecodes_path, fps, kf_before_start, kf_after_start, kf_before_end, kf_after_end):
+@click.option(
+    "-s",
+    "--style",
+    "styles",
+    multiple=True,
+    metavar="<names>",
+    help="Style names to process. All by default. Use comma to separate, or supply it multiple times",
+)
+@click.option(
+    "--lead-in",
+    "lead_in",
+    default=0,
+    type=int,
+    metavar="<ms>",
+    help="Lead-in value in milliseconds",
+)
+@click.option(
+    "--lead-out",
+    "lead_out",
+    default=0,
+    type=int,
+    metavar="<ms>",
+    help="Lead-out value in milliseconds",
+)
+@click.option(
+    "--overlap",
+    "max_overlap",
+    default=0,
+    type=int,
+    metavar="<ms>",
+    help="Maximum overlap for two lines to be made continuous, in milliseconds",
+)
+@click.option(
+    "--gap",
+    "max_gap",
+    default=0,
+    type=int,
+    metavar="<ms>",
+    help="Maximum gap between two lines to be made continuous, in milliseconds",
+)
+@click.option(
+    "--bias",
+    "adjacent_bias",
+    default=50,
+    type=click.IntRange(0, 100),
+    metavar="<percent>",
+    help="How to set the adjoining of lines. "
+    "0 - change start time of the second line, 100 - end time of the first line. "
+    "Values from 0 to 100 allowed.",
+)
+@click.option(
+    "--keyframes",
+    "keyframes_path",
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    metavar="<path>",
+    help="Path to keyframes file",
+)
+@click.option(
+    "--timecodes",
+    "timecodes_path",
+    type=click.Path(readable=True, dir_okay=False),
+    metavar="<path>",
+    help="Path to timecodes file",
+)
+@click.option(
+    "--fps",
+    "fps",
+    metavar="<float>",
+    help="Fps provided as decimal or proper fraction, in case you don't have timecodes",
+)
+@click.option(
+    "--kf-before-start",
+    default=0,
+    type=float,
+    metavar="<ms>",
+    help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed before the event",
+)
+@click.option(
+    "--kf-after-start",
+    default=0,
+    type=float,
+    metavar="<ms>",
+    help="Max distance between a keyframe and event start for it to be snapped, when keyframe is placed after the start time",
+)
+@click.option(
+    "--kf-before-end",
+    default=0,
+    type=float,
+    metavar="<ms>",
+    help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed before the end time",
+)
+@click.option(
+    "--kf-after-end",
+    default=0,
+    type=float,
+    metavar="<ms>",
+    help="Max distance between a keyframe and event end for it to be snapped, when keyframe is placed after the event",
+)
+def tpp(
+    input_file,
+    output_file,
+    styles,
+    lead_in,
+    lead_out,
+    max_overlap,
+    max_gap,
+    adjacent_bias,
+    keyframes_path,
+    timecodes_path,
+    fps,
+    kf_before_start,
+    kf_after_start,
+    kf_before_end,
+    kf_after_end,
+):
     """Timing post-processor.
     It's a pretty straightforward port from Aegisub so you should be familiar with it.
     You have to specify keyframes and timecodes (either as a CFR value or a timecodes file) if you want keyframe snapping.
@@ -195,50 +351,111 @@ def tpp(input_file, output_file, styles, lead_in, lead_out, max_overlap, max_gap
     """
 
     if fps and timecodes_path:
-        raise PrassError('Timecodes file and fps cannot be specified at the same time')
+        raise PrassError("Timecodes file and fps cannot be specified at the same time")
     if fps:
         timecodes = Timecodes.cfr(parse_fps_string(fps))
     elif timecodes_path:
         timecodes = Timecodes.from_file(timecodes_path)
     elif any((kf_before_start, kf_after_start, kf_before_end, kf_after_end)):
-        raise PrassError('You have to provide either fps or timecodes file for keyframes processing')
+        raise PrassError(
+            "You have to provide either fps or timecodes file for keyframes processing"
+        )
     else:
         timecodes = None
 
     if timecodes and not keyframes_path:
-        raise PrassError('You have to specify keyframes file for keyframes processing')
+        raise PrassError("You have to specify keyframes file for keyframes processing")
 
     keyframes_list = parse_keyframes(keyframes_path) if keyframes_path else None
 
     actual_styles = []
     for style in styles:
-        actual_styles.extend(x.strip() for x in style.split(','))
+        actual_styles.extend(x.strip() for x in style.split(","))
 
     script = AssScript.from_ass_stream(input_file)
-    script.tpp(actual_styles, lead_in, lead_out, max_overlap, max_gap, adjacent_bias,
-               keyframes_list, timecodes, kf_before_start, kf_after_start, kf_before_end, kf_after_end)
+    script.tpp(
+        actual_styles,
+        lead_in,
+        lead_out,
+        max_overlap,
+        max_gap,
+        adjacent_bias,
+        keyframes_list,
+        timecodes,
+        kf_before_start,
+        kf_after_start,
+        kf_before_end,
+        kf_after_end,
+    )
     script.to_ass_stream(output_file)
 
 
 @cli.command("cleanup", short_help="remove useless data from ass scripts")
-@click.option("-o", "--output", "output_file", default='-', type=click.File(encoding="utf-8-sig", mode='w'), metavar="<path>")
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+    metavar="<path>",
+)
 @click.argument("input_file", type=click.File(encoding="utf-8-sig"))
-@click.option("--comments", "drop_comments", default=False, is_flag=True,
-              help="Remove commented lines")
-@click.option("--empty-lines", "drop_empty_lines", default=False, is_flag=True,
-              help="Remove empty lines")
-@click.option("--styles", "drop_unused_styles", default=False, is_flag=True,
-              help="Remove unused styles")
-@click.option("--actors", "drop_actors", default=False, is_flag=True,
-              help="Remove actor field")
-@click.option("--effects", "drop_effects", default=False, is_flag=True,
-              help="Remove effects field")
-@click.option("--spacing", "drop_spacing", default=False, is_flag=True,
-              help="Removes double spacing and newlines")
-@click.option("--sections", "drop_sections", type=click.Choice(["fonts", "graphics", "aegi", "extradata"]), multiple=True,
-              help="Remove optional sections from the script")
-def cleanup(input_file, output_file, drop_comments, drop_empty_lines, drop_unused_styles,
-            drop_actors, drop_effects, drop_spacing, drop_sections):
+@click.option(
+    "--comments",
+    "drop_comments",
+    default=False,
+    is_flag=True,
+    help="Remove commented lines",
+)
+@click.option(
+    "--empty-lines",
+    "drop_empty_lines",
+    default=False,
+    is_flag=True,
+    help="Remove empty lines",
+)
+@click.option(
+    "--styles",
+    "drop_unused_styles",
+    default=False,
+    is_flag=True,
+    help="Remove unused styles",
+)
+@click.option(
+    "--actors", "drop_actors", default=False, is_flag=True, help="Remove actor field"
+)
+@click.option(
+    "--effects",
+    "drop_effects",
+    default=False,
+    is_flag=True,
+    help="Remove effects field",
+)
+@click.option(
+    "--spacing",
+    "drop_spacing",
+    default=False,
+    is_flag=True,
+    help="Removes double spacing and newlines",
+)
+@click.option(
+    "--sections",
+    "drop_sections",
+    type=click.Choice(["fonts", "graphics", "aegi", "extradata"]),
+    multiple=True,
+    help="Remove optional sections from the script",
+)
+def cleanup(
+    input_file,
+    output_file,
+    drop_comments,
+    drop_empty_lines,
+    drop_unused_styles,
+    drop_actors,
+    drop_effects,
+    drop_spacing,
+    drop_sections,
+):
     """Remove junk data from ASS script
 
     \b
@@ -249,24 +466,53 @@ def cleanup(input_file, output_file, drop_comments, drop_empty_lines, drop_unuse
         "fonts": "[Fonts]",
         "graphics": "[Graphics]",
         "aegi": "[Aegisub Project Garbage]",
-        "extradata": "[Aegisub Extradata]"
+        "extradata": "[Aegisub Extradata]",
     }
     drop_sections = [sections_map[x] for x in drop_sections]
 
     script = AssScript.from_ass_stream(input_file)
-    script.cleanup(drop_comments, drop_empty_lines, drop_unused_styles, drop_actors, drop_effects, drop_spacing, drop_sections)
+    script.cleanup(
+        drop_comments,
+        drop_empty_lines,
+        drop_unused_styles,
+        drop_actors,
+        drop_effects,
+        drop_spacing,
+        drop_sections,
+    )
     script.to_ass_stream(output_file)
 
 
 @cli.command("shift", short_help="shift start or end times of every event")
-@click.option("-o", "--output", "output_file", default='-', type=click.File(encoding="utf-8-sig", mode='w'), metavar="<path>")
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    default="-",
+    type=click.File(encoding="utf-8-sig", mode="w"),
+    metavar="<path>",
+)
 @click.argument("input_file", type=click.File(encoding="utf-8-sig"))
-@click.option("--by", "shift_by", required=False, default="0", metavar="<time>",
-              help="Time to shift. Might be negative. 10.5s, 150ms or 1:12.23 formats are allowed, seconds assumed by default")
-@click.option("--start", "shift_start", default=False, is_flag=True, help="Shift only start time")
-@click.option("--end", "shift_end", default=False, is_flag=True, help="Shift only end time")
-@click.option("--multiplier", "multiplier", default="1", 
-              help="Multiplies timings by the value to change speed. Value is a decimal or proper fraction")
+@click.option(
+    "--by",
+    "shift_by",
+    required=False,
+    default="0",
+    metavar="<time>",
+    help="Time to shift. Might be negative. 10.5s, 150ms or 1:12.23 formats are allowed, seconds assumed by default",
+)
+@click.option(
+    "--start", "shift_start", default=False, is_flag=True, help="Shift only start time"
+)
+@click.option(
+    "--end", "shift_end", default=False, is_flag=True, help="Shift only end time"
+)
+@click.option(
+    "--multiplier",
+    "multiplier",
+    default="1",
+    help="Multiplies timings by the value to change speed. Value is a decimal or proper fraction",
+)
 def shift(input_file, output_file, shift_by, shift_start, shift_end, multiplier):
     """Shift all lines in a script by defined amount and/or change speed.
 
@@ -293,19 +539,24 @@ def shift(input_file, output_file, shift_by, shift_start, shift_end, multiplier)
 
     shift_ms = parse_shift_string(shift_by)
     multiplier = parse_fps_string(multiplier)
-    if multiplier<0:
-        raise PrassError('Speed multiplier should be a positive number')
+    if multiplier < 0:
+        raise PrassError("Speed multiplier should be a positive number")
     script = AssScript.from_ass_stream(input_file)
     script.shift(shift_ms, shift_start, shift_end, multiplier)
     script.to_ass_stream(output_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     default_map = {}
     if not sys.stdin.isatty():
-        for command, arg_name in (("convert-srt", "input_path"), ("copy-styles", "dst_file"),
-                                  ("sort", "input_file"), ("tpp", "input_file"), ("cleanup", "input_file"),
-                                  ('shift', "input_file")):
-            default_map[command] = {arg_name: '-'}
+        for command, arg_name in (
+            ("convert-srt", "input_path"),
+            ("copy-styles", "dst_file"),
+            ("sort", "input_file"),
+            ("tpp", "input_file"),
+            ("cleanup", "input_file"),
+            ("shift", "input_file"),
+        ):
+            default_map[command] = {arg_name: "-"}
 
     cli(default_map=default_map)

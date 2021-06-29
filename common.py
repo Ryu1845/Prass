@@ -2,8 +2,10 @@ import sys
 
 from click.exceptions import ClickException
 
+
 class PrassError(ClickException):
     pass
+
 
 PY2 = sys.version_info[0] == 2
 
@@ -20,6 +22,7 @@ else:
     iteritems = lambda x: iter(x.items())
     iterkeys = lambda x: iter(x.keys())
     import itertools
+
     zip = itertools.izip
     map = itertools.imap
 

@@ -1,17 +1,20 @@
-import codecs
-import os
 import bisect
-import re
+import codecs
 import copy
 import logging
+import os
+import re
 from collections import OrderedDict
+
+from common import (PrassError, iteritems, iterkeys, itervalues, map,
+                    py2_unicode_compatible, zip)
+from tools import Timecodes
+
 try:
     import webcolors
 except:
     webcolors = None
 
-from tools import Timecodes
-from common import PrassError, zip, map, itervalues, iterkeys, iteritems, py2_unicode_compatible
 
 
 STYLES_SECTION = "[V4+ Styles]"
@@ -26,8 +29,13 @@ def parse_ass_time(string):
         hours, minutes, seconds, centiseconds = list(map(int, groups))
         return hours * 3600000 + minutes * 60000 + seconds * 1000 + centiseconds * 10
     else:
-        raise PrassError("____\nFailed to parse ass time in the following line:\n{0}\n____".format(string))
+        raise PrassError(
+            "____\nFailed to parse ass time in the following line:\n{0}\n____".format(
+                string
+            )
+        )
     return None
+
 
 def parse_srt_time(string):
     m = re.match(r"(\d+):(\d+):(\d+)\,(\d+)", string)
@@ -36,35 +44,43 @@ def parse_srt_time(string):
         hours, minutes, seconds, milliseconds = list(map(int, groups))
         return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds
     else:
-        raise PrassError("____\nFailed to parse ass time in the following line:\n{0}\n____".format(string))
+        raise PrassError(
+            "____\nFailed to parse ass time in the following line:\n{0}\n____".format(
+                string
+            )
+        )
     return None
 
+
 def srt_line_to_ass(line, box=False):
-    line = line.replace('\n', r'\N')
-    if '<' in line:
-        for tag in ['i', 'b', 'u', 's']:
-            line = line.replace('<%s>' % tag, '{\\%s1}' % tag)
-            line = line.replace('</%s>' % tag, '{\\%s0}' % tag)
+    line = line.replace("\n", r"\N")
+    if "<" in line:
+        for tag in ["i", "b", "u", "s"]:
+            line = line.replace("<%s>" % tag, "{\\%s1}" % tag)
+            line = line.replace("</%s>" % tag, "{\\%s0}" % tag)
         while '<font color="' in line:
-            pre, color, post = re.match(r'(.*)\<font color="(.*?)"\>(.*)', line).groups()
-            if color.startswith('#'):
+            pre, color, post = re.match(
+                r'(.*)\<font color="(.*?)"\>(.*)', line
+            ).groups()
+            if color.startswith("#"):
                 r, g, b = color[1:3], color[3:5], color[5:]
             elif webcolors:
                 r, g, b = ["%02X" % x for x in webcolors.name_to_rgb(color)]
             else:
-                logging.warning('Can\'t parse color "%s", please install webcolors module.' % color)
+                logging.warning(
+                    'Can\'t parse color "%s", please install webcolors module.' % color
+                )
                 break
-            line = pre + '{\c&H%s%s%s&}' % (b, g, r) + post
-        line = line.replace('</font>', '{\c&HFFFFFF&}')
+            line = pre + "{\c&H%s%s%s&}" % (b, g, r) + post
+        line = line.replace("</font>", "{\c&HFFFFFF&}")
     return line
+
 
 def format_time(ms):
     cs = int(ms / 10.0)
-    return '{0}:{1:02d}:{2:02d}.{3:02d}'.format(
-            int(cs // 360000),
-            int((cs // 6000) % 60),
-            int((cs // 100) % 60),
-            int(cs % 100))
+    return "{0}:{1:02d}:{2:02d}.{3:02d}".format(
+        int(cs // 360000), int((cs // 6000) % 60), int((cs // 100) % 60), int(cs % 100)
+    )
 
 
 class AssStyle(object):
@@ -74,10 +90,12 @@ class AssStyle(object):
 
     @classmethod
     def from_string(cls, text):
-        name, definition = text.split(',', 1)
+        name, definition = text.split(",", 1)
         return cls(name=name.strip(), definition=definition.strip())
 
-    def resample(self, from_width, from_height, to_width, to_height, scale_border_and_shadow=True):
+    def resample(
+        self, from_width, from_height, to_width, to_height, scale_border_and_shadow=True
+    ):
         scale_height = to_height / float(from_height)
         scale_width = to_width / float(from_width)
         old_ar = from_width / float(from_height)
@@ -113,11 +131,23 @@ class AssEvent(object):
         "margin_right",
         "margin_vertical",
         "effect",
-        "text"
+        "text",
     )
 
-    def __init__(self, start, end, text, kind='Dialogue', layer=0, style='Default', actor='',
-                 margin_left=0, margin_right=0, margin_vertical=0, effect=''):
+    def __init__(
+        self,
+        start,
+        end,
+        text,
+        kind="Dialogue",
+        layer=0,
+        style="Default",
+        actor="",
+        margin_left=0,
+        margin_right=0,
+        margin_vertical=0,
+        effect="",
+    ):
         self.kind = kind
         self.layer = layer
         self.start = start
@@ -133,7 +163,7 @@ class AssEvent(object):
     @classmethod
     def from_text(cls, text):
         kind, _, rest = text.partition(":")
-        split = [x.strip() for x in rest.split(',', 9)]
+        split = [x.strip() for x in rest.split(",", 9)]
         return cls(
             kind=kind,
             layer=int(split[0]),
@@ -145,21 +175,27 @@ class AssEvent(object):
             margin_right=split[6],
             margin_vertical=split[7],
             effect=split[8],
-            text=split[9]
+            text=split[9],
         )
 
     def __str__(self):
-        return '{0}: {1},{2},{3},{4},{5},{6},{7},{8},{9},{10}'.format(self.kind, self.layer,
-                                                                       format_time(self.start),
-                                                                       format_time(self.end),
-                                                                       self.style, self.actor,
-                                                                       self.margin_left, self.margin_right,
-                                                                       self.margin_vertical, self.effect,
-                                                                       self.text)
+        return "{0}: {1},{2},{3},{4},{5},{6},{7},{8},{9},{10}".format(
+            self.kind,
+            self.layer,
+            format_time(self.start),
+            format_time(self.end),
+            self.style,
+            self.actor,
+            self.margin_left,
+            self.margin_right,
+            self.margin_vertical,
+            self.effect,
+            self.text,
+        )
 
     @property
     def is_comment(self):
-        return self.kind.lower() == 'comment'
+        return self.kind.lower() == "comment"
 
     def collides_with(self, other):
         if self.start < other.start:
@@ -172,14 +208,19 @@ class StylesSection(object):
         self.styles = OrderedDict()
 
     def parse_line(self, text):
-        if text.startswith('Format:'):
+        if text.startswith("Format:"):
             return
         style = AssStyle.from_string(text.partition(":")[2])
         self.styles[style.name] = style
 
     def format_section(self):
-        lines = ['Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding']
-        lines.extend('Style: {0},{1}'.format(style.name, style.definition) for style in itervalues(self.styles))
+        lines = [
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
+        ]
+        lines.extend(
+            "Style: {0},{1}".format(style.name, style.definition)
+            for style in itervalues(self.styles)
+        )
         return lines
 
 
@@ -188,12 +229,14 @@ class EventsSection(object):
         self.events = []
 
     def parse_line(self, text):
-        if text.startswith('Format:'):
+        if text.startswith("Format:"):
             return
         self.events.append(AssEvent.from_text(text))
 
     def format_section(self):
-        lines = ['Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text']
+        lines = [
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
+        ]
         lines.extend("%s" % x for x in self.events)
         return lines
 
@@ -206,10 +249,10 @@ class ScriptInfoSection(object):
 
         @classmethod
         def from_string(cls, string_value):
-            if string_value.startswith(';'):
+            if string_value.startswith(";"):
                 return cls(string_value, None)
             else:
-                name, _, value = string_value.partition(':')
+                name, _, value = string_value.partition(":")
                 return cls(name, value.strip())
 
         def to_string(self):
@@ -252,7 +295,7 @@ class ScriptInfoSection(object):
 
     def get_scaled_border_property(self):
         try:
-            return self.get_property("ScaledBorderAndShadow")=="yes"
+            return self.get_property("ScaledBorderAndShadow") == "yes"
         except KeyError:
             return True
 
@@ -275,7 +318,7 @@ class AttachmentSection(GenericSection):
         self.lines.append(line)
 
         # as usual, copied from aegisub
-        is_valid = 0 < len(line) <= 80 #and all(33 <= ord(x) < 97 for x in line)
+        is_valid = 0 < len(line) <= 80  # and all(33 <= ord(x) < 97 for x in line)
         is_filename = line.startswith("fontname: ") or line.startswith("filename: ")
         return is_valid or is_filename
 
@@ -298,7 +341,14 @@ class AssScript(object):
         return self._find_section(STYLES_SECTION).styles
 
     def _find_section(self, name):
-        return next((section for section_name, section in self._sections_list if section_name == name), None)
+        return next(
+            (
+                section
+                for section_name, section in self._sections_list
+                if section_name == name
+            ),
+            None,
+        )
 
     @classmethod
     def from_ass_stream(cls, file_object):
@@ -313,39 +363,47 @@ class AssScript(object):
                     force_last_section = current_section.parse_line(line)
                     continue
                 except Exception as e:
-                    raise PrassError("That's some invalid ASS script: {0}".format(e.message))
+                    raise PrassError(
+                        "That's some invalid ASS script: {0}".format(e.message)
+                    )
 
             if not line:
                 continue
             low = line.lower()
-            if low == '[v4+ styles]':
+            if low == "[v4+ styles]":
                 current_section = StylesSection()
                 sections.append((line, current_section))
-            elif low == '[events]':
+            elif low == "[events]":
                 current_section = EventsSection()
                 sections.append((line, current_section))
-            elif low == '[script info]':
+            elif low == "[script info]":
                 current_section = ScriptInfoSection()
                 sections.append((line, current_section))
-            elif low == '[graphics]' or low == '[fonts]':
+            elif low == "[graphics]" or low == "[fonts]":
                 current_section = AttachmentSection()
                 sections.append((line, current_section))
-            elif re.match(r'^\s*\[.+?\]\s*$', low):
+            elif re.match(r"^\s*\[.+?\]\s*$", low):
                 current_section = GenericSection()
                 sections.append((line, current_section))
             elif not current_section:
-                raise PrassError("That's some invalid ASS script (no parse function at line {0})".format(idx))
+                raise PrassError(
+                    "That's some invalid ASS script (no parse function at line {0})".format(
+                        idx
+                    )
+                )
             else:
                 try:
                     force_last_section = current_section.parse_line(line)
                 except Exception as e:
-                    raise PrassError("That's some invalid ASS script: {0}".format(e.message))
+                    raise PrassError(
+                        "That's some invalid ASS script: {0}".format(e.message)
+                    )
         return cls(sections)
 
     @classmethod
     def from_ass_file(cls, path):
         try:
-            with codecs.open(path, encoding='utf-8-sig') as script:
+            with codecs.open(path, encoding="utf-8-sig") as script:
                 return cls.from_ass_stream(script)
         except IOError:
             raise PrassError("Script {0} not found".format(path))
@@ -355,30 +413,37 @@ class AssScript(object):
         styles_section = StylesSection()
         events_section = EventsSection()
 
-        for srt_event in file_object.read().replace('\r\n', '\n').split('\n\n'):
+        for srt_event in file_object.read().replace("\r\n", "\n").split("\n\n"):
             if not srt_event:
                 continue
-            lines = srt_event.split('\n', 2)
-            times = lines[1].split('-->')
-            if 'X' in times[1] or 'Y' in times[1]:
-                times[1], box = times[1].strip().split(' ', 1)
+            lines = srt_event.split("\n", 2)
+            times = lines[1].split("-->")
+            if "X" in times[1] or "Y" in times[1]:
+                times[1], box = times[1].strip().split(" ", 1)
             else:
                 box = False
-            text=srt_line_to_ass(lines[2])
-            events_section.events.append(AssEvent(
-                start=parse_srt_time(times[0].rstrip()),
-                end=parse_srt_time(times[1].lstrip()),
-                text=text
-            ))
-        styles_section.styles['Default'] = AssStyle('Default', 'Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1')
+            text = srt_line_to_ass(lines[2])
+            events_section.events.append(
+                AssEvent(
+                    start=parse_srt_time(times[0].rstrip()),
+                    end=parse_srt_time(times[1].lstrip()),
+                    text=text,
+                )
+            )
+        styles_section.styles["Default"] = AssStyle(
+            "Default",
+            "Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1",
+        )
         script_info = ScriptInfoSection()
-        script_info.parse_line('; Script converted by Prass')
+        script_info.parse_line("; Script converted by Prass")
         script_info.set_resolution(384, 288)
-        return cls([
-            (SCRIPT_INFO_SECTION, script_info),
-            (STYLES_SECTION, styles_section),
-            (EVENTS_SECTION, events_section),
-        ])
+        return cls(
+            [
+                (SCRIPT_INFO_SECTION, script_info),
+                (STYLES_SECTION, styles_section),
+                (EVENTS_SECTION, events_section),
+            ]
+        )
 
     def to_ass_stream(self, file_object):
         lines = []
@@ -390,23 +455,35 @@ class AssScript(object):
         file_object.write("\n".join(lines))
 
     def to_ass_file(self, path):
-        with codecs.open(path, encoding='utf-8-sig', mode='w') as script:
+        with codecs.open(path, encoding="utf-8-sig", mode="w") as script:
             self.to_ass_stream(script)
-    
+
     def scale_to_reference(self, reference, forced_resolution=None):
         src_width, src_height = self._find_section(SCRIPT_INFO_SECTION).get_resolution()
-        scale_border_and_shadow = self._find_section(SCRIPT_INFO_SECTION).get_scaled_border_property()
+        scale_border_and_shadow = self._find_section(
+            SCRIPT_INFO_SECTION
+        ).get_scaled_border_property()
         if forced_resolution:
             dst_width, dst_height = forced_resolution
         else:
-            dst_width, dst_height = reference._find_section(SCRIPT_INFO_SECTION).get_resolution()
+            dst_width, dst_height = reference._find_section(
+                SCRIPT_INFO_SECTION
+            ).get_resolution()
         if all((src_width, src_height, dst_width, dst_height)):
             for style in itervalues(self._styles):
-                style.resample(src_width, src_height, dst_width, dst_height, scale_border_and_shadow)
-            self._find_section(SCRIPT_INFO_SECTION).set_resolution(dst_width, dst_height)
+                style.resample(
+                    src_width,
+                    src_height,
+                    dst_width,
+                    dst_height,
+                    scale_border_and_shadow,
+                )
+            self._find_section(SCRIPT_INFO_SECTION).set_resolution(
+                dst_width, dst_height
+            )
         else:
             logging.info("Couldn't determine resolution, resampling disabled")
-    
+
     def append_styles(self, other_script, clean, resample, forced_resolution=None):
         if clean:
             self._styles.clear()
@@ -424,16 +501,28 @@ class AssScript(object):
     def sort_events(self, key, descending):
         self._events.sort(key=key, reverse=descending)
 
-    def tpp(self, styles, lead_in, lead_out, max_overlap, max_gap, adjacent_bias,
-            keyframes_list, timecodes, kf_before_start, kf_after_start, kf_before_end, kf_after_end):
-
+    def tpp(
+        self,
+        styles,
+        lead_in,
+        lead_out,
+        max_overlap,
+        max_gap,
+        adjacent_bias,
+        keyframes_list,
+        timecodes,
+        kf_before_start,
+        kf_after_start,
+        kf_before_end,
+        kf_after_end,
+    ):
         def get_closest_kf(frame, keyframes):
             idx = bisect.bisect_left(keyframes, frame)
             if idx == len(keyframes):
                 return keyframes[-1]
-            if idx == 0 or keyframes[idx] - frame < frame - (keyframes[idx-1]):
+            if idx == 0 or keyframes[idx] - frame < frame - (keyframes[idx - 1]):
                 return keyframes[idx]
-            return keyframes[idx-1]
+            return keyframes[idx - 1]
 
         events_iter = (e for e in self._events if not e.is_comment)
         if styles:
@@ -443,7 +532,11 @@ class AssScript(object):
         events_list = sorted(events_iter, key=lambda x: x.start)
         broken = next((e for e in events_list if e.start > e.end), None)
         if broken:
-            raise PrassError("One of the lines in the file ({0}) has negative duration. Aborting.".format(broken))
+            raise PrassError(
+                "One of the lines in the file ({0}) has negative duration. Aborting.".format(
+                    broken
+                )
+            )
 
         if lead_in:
             sorted_by_end = sorted(events_list, key=lambda x: x.end)
@@ -471,30 +564,59 @@ class AssScript(object):
 
             for previous, current in zip(events_list, events_list[1:]):
                 distance = current.start - previous.end
-                if (distance < 0 and -distance <= max_overlap) or (distance > 0 and distance <= max_gap):
+                if (distance < 0 and -distance <= max_overlap) or (
+                    distance > 0 and distance <= max_gap
+                ):
                     new_time = previous.end + distance * bias
                     current.start = new_time
                     previous.end = new_time
 
         if kf_before_start or kf_after_start or kf_before_end or kf_after_end:
             for event in events_list:
-                start_frame = timecodes.get_frame_number(event.start, timecodes.TIMESTAMP_START)
-                end_frame = timecodes.get_frame_number(event.end, timecodes.TIMESTAMP_END)
+                start_frame = timecodes.get_frame_number(
+                    event.start, timecodes.TIMESTAMP_START
+                )
+                end_frame = timecodes.get_frame_number(
+                    event.end, timecodes.TIMESTAMP_END
+                )
 
                 closest_frame = get_closest_kf(start_frame, keyframes_list)
-                closest_time = timecodes.get_frame_time(closest_frame, timecodes.TIMESTAMP_START)
+                closest_time = timecodes.get_frame_time(
+                    closest_frame, timecodes.TIMESTAMP_START
+                )
 
-                if (end_frame > closest_frame >= start_frame and closest_time - event.start <= kf_after_start) or \
-                        (closest_frame <= start_frame and event.start - closest_time <= kf_before_start):
+                if (
+                    end_frame > closest_frame >= start_frame
+                    and closest_time - event.start <= kf_after_start
+                ) or (
+                    closest_frame <= start_frame
+                    and event.start - closest_time <= kf_before_start
+                ):
                     event.start = max(0, closest_time)
 
                 closest_frame = get_closest_kf(end_frame, keyframes_list) - 1
-                closest_time = timecodes.get_frame_time(closest_frame, timecodes.TIMESTAMP_END)
-                if (start_frame < closest_frame <= end_frame and event.end - closest_time <= kf_before_end) or \
-                        (closest_frame >= end_frame and closest_time - event.end <= kf_after_end):
+                closest_time = timecodes.get_frame_time(
+                    closest_frame, timecodes.TIMESTAMP_END
+                )
+                if (
+                    start_frame < closest_frame <= end_frame
+                    and event.end - closest_time <= kf_before_end
+                ) or (
+                    closest_frame >= end_frame
+                    and closest_time - event.end <= kf_after_end
+                ):
                     event.end = closest_time
 
-    def cleanup(self, drop_comments, drop_empty_lines, drop_unused_styles, drop_actors, drop_effects, drop_spacing, drop_sections):
+    def cleanup(
+        self,
+        drop_comments,
+        drop_empty_lines,
+        drop_unused_styles,
+        drop_actors,
+        drop_effects,
+        drop_spacing,
+        drop_sections,
+    ):
         if drop_comments:
             self._events = [e for e in self._events if not e.is_comment]
 
@@ -516,18 +638,20 @@ class AssScript(object):
 
         if drop_actors:
             for event in self._events:
-                event.actor = ''
+                event.actor = ""
 
         if drop_effects:
             for event in self._events:
-                event.effect = ''
+                event.effect = ""
 
         if drop_spacing:
             for event in self._events:
                 event.text = re.sub(r"(\s|\\N|\\n)+", " ", event.text)
 
         if drop_sections:
-            self._sections_list = [x for x in self._sections_list if x[0] not in set(drop_sections)]
+            self._sections_list = [
+                x for x in self._sections_list if x[0] not in set(drop_sections)
+            ]
 
     def shift(self, shift, shift_start, shift_end, multiplier):
         for event in self._events:

@@ -1,19 +1,22 @@
-from common import PrassError
 import bisect
 import math
 
+from common import PrassError
+
 
 def parse_scxvid_keyframes(text):
-    return [i-3 for i,line in enumerate(text.splitlines()) if line and line[0] == 'i']
+    return [
+        i - 3 for i, line in enumerate(text.splitlines()) if line and line[0] == "i"
+    ]
 
 
 def parse_keyframes(path):
     with open(path) as file_object:
         text = file_object.read()
-    if text.find('# XviD 2pass stat file')>=0:
+    if text.find("# XviD 2pass stat file") >= 0:
         frames = parse_scxvid_keyframes(text)
     else:
-        raise PrassError('Unsupported keyframes type')
+        raise PrassError("Unsupported keyframes type")
     if 0 not in frames:
         frames.insert(0, 0)
     return frames
@@ -30,19 +33,21 @@ class Timecodes(object):
 
     def get_frame_time(self, number, kind=None):
         if kind == self.TIMESTAMP_START:
-            prev = self.get_frame_time(number-1)
+            prev = self.get_frame_time(number - 1)
             curr = self.get_frame_time(number)
             return prev + int(round((curr - prev) / 2.0))
         elif kind == self.TIMESTAMP_END:
             curr = self.get_frame_time(number)
-            after = self.get_frame_time(number+1)
+            after = self.get_frame_time(number + 1)
             return curr + int(round((after - curr) / 2.0))
 
         try:
             return self.times[number]
         except IndexError:
             if not self.default_frame_duration:
-                raise ValueError("Cannot calculate frame timestamp without frame duration")
+                raise ValueError(
+                    "Cannot calculate frame timestamp without frame duration"
+                )
             past_end, last_time = number, 0
             if self.times:
                 past_end, last_time = (number - len(self.times) + 1), self.times[-1]
@@ -59,7 +64,9 @@ class Timecodes(object):
             return bisect.bisect_left(self.times, ms)
 
         if not self.default_frame_duration:
-            raise ValueError("Cannot calculate frame for this timestamp without frame duration")
+            raise ValueError(
+                "Cannot calculate frame for this timestamp without frame duration"
+            )
 
         if ms < 0:
             return int(math.floor(ms / self.default_frame_duration))
@@ -76,7 +83,7 @@ class Timecodes(object):
 
         fps = [default_fps] * (overrides[-1][1] + 1)
         for start, end, fps in overrides:
-            fps[start:end + 1] = [fps] * (end - start + 1)
+            fps[start : end + 1] = [fps] * (end - start + 1)
 
         v2 = [0]
         for d in (1000.0 / f for f in fps):
@@ -89,15 +96,15 @@ class Timecodes(object):
         if not lines:
             return []
         first = lines[0].lower().lstrip()
-        if first.startswith('# timecode format v2'):
+        if first.startswith("# timecode format v2"):
             tcs = [x for x in lines[1:]]
             return Timecodes(tcs, None)
-        elif first.startswith('# timecode format v1'):
-            default = float(lines[1].lower().replace('assume ', ""))
-            overrides = (x.split(',') for x in lines[2:])
+        elif first.startswith("# timecode format v1"):
+            default = float(lines[1].lower().replace("assume ", ""))
+            overrides = (x.split(",") for x in lines[2:])
             return Timecodes(cls._convert_v1_to_v2(default, overrides), default)
         else:
-            raise PrassError('This timecodes format is not supported')
+            raise PrassError("This timecodes format is not supported")
 
     @classmethod
     def from_file(cls, path):
